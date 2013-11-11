@@ -42,6 +42,7 @@ from pelican.utils import get_date, pelican_open
 METADATA_PROCESSORS = {
     'tags': lambda x, y: [Tag(tag, y) for tag in x.split(',')],
     'date': lambda x, y: get_date(x),
+    'modified': lambda x, y: get_date(x),
     'status': lambda x, y: x.strip(),
     'category': Category,
     'author': Author,
@@ -302,7 +303,12 @@ class HTMLReader(BaseReader):
             return result + '>'
 
         def _handle_meta_tag(self, attrs):
-            name = self._attr_value(attrs, 'name').lower()
+            name = self._attr_value(attrs, 'name')
+            if name is None:
+                attr_serialized = ', '.join(['{}="{}"'.format(k, v) for k, v in attrs])
+                logger.warning("Meta tag in file %s does not have a 'name' attribute, skipping. Attributes: %s", self._filename, attr_serialized)
+                return
+            name = name.lower()
             contents = self._attr_value(attrs, 'content', '')
             if not contents:
                 contents = self._attr_value(attrs, 'contents', '')
@@ -516,6 +522,7 @@ def default_metadata(settings=None, process=None):
             metadata['category'] = value
         if 'DEFAULT_DATE' in settings and settings['DEFAULT_DATE'] != 'fs':
             metadata['date'] = datetime.datetime(*settings['DEFAULT_DATE'])
+            metadata['modified'] = metadata['date']
     return metadata
 
 
@@ -525,6 +532,7 @@ def path_metadata(full_path, source_path, settings=None):
         if settings.get('DEFAULT_DATE', None) == 'fs':
             metadata['date'] = datetime.datetime.fromtimestamp(
                 os.stat(full_path).st_ctime)
+            metadata['modified'] = metadata['date']
         metadata.update(settings.get('EXTRA_PATH_METADATA', {}).get(
             source_path, {}))
     return metadata
